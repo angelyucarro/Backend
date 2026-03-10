@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS app_config (
 
 const stmts = {
   findUser: db.prepare('SELECT * FROM users WHERE username = ?'),
-  listUsers: db.prepare('SELECT * FROM users ORDER BY CASE WHEN role = "admin" THEN 0 ELSE 1 END, username ASC'),
+  listUsers: db.prepare('SELECT * FROM users ORDER BY CASE WHEN role = 'admin' THEN 0 ELSE 1 END, username ASC'),
   upsertUser: db.prepare(`
     INSERT INTO users (username, password_hash, role, modules_json, link_access_json, created_at, updated_at)
     VALUES (@username, @password_hash, @role, @modules_json, @link_access_json, @created_at, @updated_at)
