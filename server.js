@@ -204,6 +204,16 @@ function ensureBootstrapData() {
 ensureBootstrapData();
 
 const app = express();
+const cors = require('cors'); // Agregar arriba con los otros requires
+// ... código existente ...
+const app = express();
+app.use(cors({
+  origin: [
+    'http://localhost:3000', // Para pruebas locales si usas Live Server
+    'https://tu-sitio-en.netlify.app' // Reemplaza esto con tu URL REAL DE NETLIFY
+  ],
+  credentials: true // Muy importante para que pasen las cookies de sesión (JWT)
+}));
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
