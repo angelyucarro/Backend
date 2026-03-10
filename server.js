@@ -85,7 +85,7 @@ const stmts = {
     WHERE username = @old_username
   `),
   deleteUser: db.prepare('DELETE FROM users WHERE username = ?'),
-  countAdmins: db.prepare('SELECT COUNT(*) AS c FROM users WHERE role = "admin"'),
+  countAdmins: db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'"),
   getConfig: db.prepare('SELECT value_json FROM app_config WHERE key = ?'),
   upsertConfig: db.prepare(`
     INSERT INTO app_config (key, value_json, updated_at)
