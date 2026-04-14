@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
+const cors = require('cors');
 require('dotenv').config();
 
 const PORT = Number(process.env.PORT || 8080);
@@ -13,6 +14,7 @@ const JWT_SECRET = String(process.env.JWT_SECRET || 'CHANGE_THIS_SECRET_IN_PROD'
 const COOKIE_NAME = 'yucarro_session';
 const COOKIE_SECURE = String(process.env.COOKIE_SECURE || 'false') === 'true';
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'dashboard.db');
+const DEFAULT_CPK_GOALS_URL = process.env.CPK_GOALS_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vThc6F_SNxa5JhL897dxyyl7u-g-g2q4QbTHIo8yEkDBJpHXAH9NZzx3FJFPwxvbg/pub?gid=584200482&single=true&output=csv';
 
 const DEFAULT_LINKS = {
   cpk: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vThc6F_SNxa5JhL897dxyyl7u-g-g2q4QbTHIo8yEkDBJpHXAH9NZzx3FJFPwxvbg/pub?gid=585285912&single=true&output=csv',
@@ -23,11 +25,20 @@ const DEFAULT_LINKS = {
   extra: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQsdiL36ZevOm1AY8E-PfkIhWFzimoVoeQlbWw-wq7mfHU-bE28UENuWqjLl1yb_A/pub?gid=612375241&single=true&output=csv',
   lossY: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQrVX7KEz9XHq0m50eT6wsF-kSigOp4pNiycGS9mlbFy3tl_jA-cS7jaeqkt1TtCg/pub?gid=869681452&single=true&output=csv',
   lossT: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQrVX7KEz9XHq0m50eT6wsF-kSigOp4pNiycGS9mlbFy3tl_jA-cS7jaeqkt1TtCg/pub?gid=236163936&single=true&output=csv',
-  lossC: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQrVX7KEz9XHq0m50eT6wsF-kSigOp4pNiycGS9mlbFy3tl_jA-cS7jaeqkt1TtCg/pub?gid=266470563&single=true&output=csv'
+  lossC: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQrVX7KEz9XHq0m50eT6wsF-kSigOp4pNiycGS9mlbFy3tl_jA-cS7jaeqkt1TtCg/pub?gid=266470563&single=true&output=csv',
+  fleetY: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEviqlzB8EqlmEGzCBJtlBYycramFUr0xSrVFgWb8uFX5xviIabqXh4ifH_UiG7g/pub?gid=608566379&single=true&output=csv',
+  fleetT: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEviqlzB8EqlmEGzCBJtlBYycramFUr0xSrVFgWb8uFX5xviIabqXh4ifH_UiG7g/pub?gid=1243006072&single=true&output=csv',
+  fleetTlm: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEviqlzB8EqlmEGzCBJtlBYycramFUr0xSrVFgWb8uFX5xviIabqXh4ifH_UiG7g/pub?gid=733085639&single=true&output=csv',
+  fleetLmr: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEviqlzB8EqlmEGzCBJtlBYycramFUr0xSrVFgWb8uFX5xviIabqXh4ifH_UiG7g/pub?gid=2038782905&single=true&output=csv',
+  fleetC: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEviqlzB8EqlmEGzCBJtlBYycramFUr0xSrVFgWb8uFX5xviIabqXh4ifH_UiG7g/pub?gid=552375482&single=true&output=csv',
+  fleetCmc: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEviqlzB8EqlmEGzCBJtlBYycramFUr0xSrVFgWb8uFX5xviIabqXh4ifH_UiG7g/pub?gid=739440809&single=true&output=csv',
+  fleetLorm: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEviqlzB8EqlmEGzCBJtlBYycramFUr0xSrVFgWb8uFX5xviIabqXh4ifH_UiG7g/pub?gid=2031649304&single=true&output=csv',
+  workshop: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-IwgCpgXUgfhMcsbRHfPmlNAzxTqvWo4oCbCw5HX1dlGjL5RJBtLiK7d2A3s2Gg/pub?gid=1796109718&single=true&output=csv',
+  workshopOrders: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ-IwgCpgXUgfhMcsbRHfPmlNAzxTqvWo4oCbCw5HX1dlGjL5RJBtLiK7d2A3s2Gg/pub?gid=1892086023&single=true&output=csv'
 };
 
-const ALLOWED_MODULES = ['performance', 'scrap', 'strategy', 'washing', 'extra', 'loss', 'colorblind'];
-const ALLOWED_LINK_ACCESS = ['performance', 'scrap', 'strategy', 'scrapCredit', 'washing', 'washingHist', 'extra', 'lossY', 'lossT', 'lossC'];
+const ALLOWED_MODULES = ['performance', 'scrap', 'strategy', 'washing', 'extra', 'loss', 'fleet', 'colorblind'];
+const ALLOWED_LINK_ACCESS = ['performance', 'scrap', 'strategy', 'scrapCredit', 'washing', 'washingHist', 'extra', 'lossY', 'lossT', 'lossC', 'fleetY', 'fleetT', 'fleetTlm', 'fleetLmr', 'fleetC', 'fleetCmc', 'fleetLorm', 'workshop', 'workshopOrders'];
 const VALID_ROLES = ['admin', 'editor', 'viewer'];
 
 fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
@@ -141,6 +152,74 @@ function canEditLink(user, key) {
   return Array.isArray(user.linkAccess) && user.linkAccess.includes(key);
 }
 
+function canAccessModule(user, moduleKey) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return Array.isArray(user.modules) && user.modules.includes(moduleKey);
+}
+
+function parseCsvText(csvText) {
+  const text = (csvText || '').replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        field += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === ',' && !inQuotes) {
+      row.push(field);
+      field = '';
+      continue;
+    }
+    if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i + 1] === '\n') i += 1;
+      row.push(field);
+      field = '';
+      const hasContent = row.some((x) => normalizeStr(x) !== '');
+      if (hasContent) rows.push(row);
+      row = [];
+      continue;
+    }
+    field += ch;
+  }
+
+  row.push(field);
+  if (row.some((x) => normalizeStr(x) !== '')) rows.push(row);
+  return rows;
+}
+
+function csvRowsToObjects(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const header = rows[0].map((h, idx) => normalizeStr(h) || `col_${idx + 1}`);
+  return rows.slice(1).map((r) => {
+    const obj = {};
+    header.forEach((h, idx) => { obj[h] = r[idx] ?? ''; });
+    return obj;
+  }).filter((obj) => Object.values(obj).some((v) => normalizeStr(v) !== ''));
+}
+
+async function fetchCsvMatrix(url) {
+  const response = await fetch(url, { method: 'GET' });
+  if (!response.ok) throw new Error(`No se pudo descargar CSV (${response.status})`);
+  const raw = await response.text();
+  return parseCsvText(raw);
+}
+
+async function fetchCsvObjects(url) {
+  const matrix = await fetchCsvMatrix(url);
+  return csvRowsToObjects(matrix);
+}
+
 function getLinks() {
   const row = stmts.getConfig.get('cloud_links');
   if (!row) return { ...DEFAULT_LINKS };
@@ -160,6 +239,23 @@ function saveLinks(links) {
 
 function listUsersPublic() {
   return stmts.listUsers.all().map(rowToUser);
+}
+
+const DATA_CACHE_TTL_MS = Number(process.env.DATA_CACHE_TTL_MS || 300000);
+const dataCache = new Map();
+
+function readCache(key) {
+  const item = dataCache.get(key);
+  if (!item) return null;
+  if (item.expiresAt < Date.now()) {
+    dataCache.delete(key);
+    return null;
+  }
+  return item.value;
+}
+
+function writeCache(key, value) {
+  dataCache.set(key, { value, expiresAt: Date.now() + DATA_CACHE_TTL_MS });
 }
 
 function ensureBootstrapData() {
@@ -204,22 +300,29 @@ function ensureBootstrapData() {
 ensureBootstrapData();
 
 const app = express();
-const cors = require('cors'); // Agregar arriba con los otros requires
-// ... código existente ...
-const app = express();
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000', // Para pruebas locales si usas Live Server
-    'https://tu-sitio-en.netlify.app' // Reemplaza esto con tu URL REAL DE NETLIFY
-  ],
-  credentials: true // Muy importante para que pasen las cookies de sesión (JWT)
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (/^http:\/\/localhost:\d+$/.test(origin) || origin === 'https://dashboardyucarro.netlify.app' || origin === 'https://yucarrrocampo.netlify.app') {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS bloqueado para este origen'), false);
+  },
+  credentials: true // Permite envío de cookies (SameSite)
 }));
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
 function readSession(req) {
-  const token = req.cookies[COOKIE_NAME];
+  const authHeader = normalizeStr(req.headers && req.headers.authorization);
+  const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+  const cookieToken = normalizeStr(req.cookies && req.cookies[COOKIE_NAME]);
+  const token = bearerToken || cookieToken;
   if (!token) return null;
   try {
     const payload = jwt.verify(token, JWT_SECRET);
@@ -236,10 +339,11 @@ function setSession(res, username) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: COOKIE_SECURE,
-    sameSite: 'lax',
+    sameSite: COOKIE_SECURE ? 'none' : 'lax',
     maxAge: 12 * 60 * 60 * 1000,
     path: '/'
   });
+  return token;
 }
 
 function clearSession(res) {
@@ -266,11 +370,11 @@ app.get('/api/health', (_req, res) => {
 
 app.get('/api/bootstrap', (req, res) => {
   const me = readSession(req);
-  const links = getLinks();
   if (!me) {
-    return res.json({ ok: true, me: null, users: [], links });
+    return res.json({ ok: true, me: null, users: [], links: {} });
   }
 
+  const links = getLinks();
   const users = me.role === 'admin'
     ? listUsersPublic()
     : [me];
@@ -290,11 +394,11 @@ app.post('/api/auth/login', (req, res) => {
   const valid = bcrypt.compareSync(password, row.password_hash);
   if (!valid) return res.status(401).json({ ok: false, error: 'Credenciales inválidas' });
 
-  setSession(res, row.username);
+  const sessionToken = setSession(res, row.username);
   const me = rowToUser(row);
   const users = me.role === 'admin' ? listUsersPublic() : [me];
   const links = getLinks();
-  return res.json({ ok: true, me, users, links });
+  return res.json({ ok: true, me, users, links, sessionToken });
 });
 
 app.post('/api/auth/logout', (_req, res) => {
@@ -416,7 +520,8 @@ app.post('/api/users/change-password', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/links', (_req, res) => {
+app.get('/api/links', requireAuth, (req, res) => {
+  if (!req.user) return res.status(401).json({ ok: false, error: 'No autenticado' });
   res.json({ ok: true, links: getLinks() });
 });
 
@@ -450,6 +555,162 @@ app.post('/api/links/reset', requireAuth, (req, res) => {
 
   const saved = saveLinks(links);
   res.json({ ok: true, links: saved });
+});
+
+app.get('/api/data/workshop', requireAuth, async (req, res) => {
+  if (!canAccessModule(req.user, 'workshop')) {
+    return res.status(403).json({ ok: false, error: 'Sin acceso al módulo Gastos Taller' });
+  }
+
+  const links = getLinks();
+  const workshopUrl = normalizeStr(links.workshop || DEFAULT_LINKS.workshop);
+  const workshopOrdersUrl = normalizeStr(links.workshopOrders || DEFAULT_LINKS.workshopOrders);
+  const cacheKey = `workshop:${workshopUrl}|${workshopOrdersUrl}`;
+  const cached = readCache(cacheKey);
+  if (cached) return res.json({ ok: true, ...cached, cached: true });
+
+  try {
+    const [workshopMatrix, workshopOrdersRows] = await Promise.all([
+      fetchCsvMatrix(workshopUrl),
+      fetchCsvObjects(workshopOrdersUrl)
+    ]);
+    const payload = {
+      workshopMatrix,
+      workshopOrdersRows,
+      loadedAt: nowIso()
+    };
+    writeCache(cacheKey, payload);
+    return res.json({ ok: true, ...payload, cached: false });
+  } catch (err) {
+    return res.status(502).json({ ok: false, error: `Error cargando Gastos Taller: ${err.message || 'desconocido'}` });
+  }
+});
+
+app.get('/api/data/loss', requireAuth, async (req, res) => {
+  if (!canAccessModule(req.user, 'loss')) {
+    return res.status(403).json({ ok: false, error: 'Sin acceso al módulo Faltante Turbo' });
+  }
+
+  const links = getLinks();
+  const lossYUrl = normalizeStr(links.lossY || DEFAULT_LINKS.lossY);
+  const lossTUrl = normalizeStr(links.lossT || DEFAULT_LINKS.lossT);
+  const lossCUrl = normalizeStr(links.lossC || DEFAULT_LINKS.lossC);
+  const cacheKey = `loss:${lossYUrl}|${lossTUrl}|${lossCUrl}`;
+  const cached = readCache(cacheKey);
+  if (cached) return res.json({ ok: true, ...cached, cached: true });
+
+  try {
+    const [lossYRows, lossTRows, lossCRows] = await Promise.all([
+      fetchCsvObjects(lossYUrl),
+      fetchCsvObjects(lossTUrl),
+      fetchCsvObjects(lossCUrl)
+    ]);
+    const payload = {
+      lossYRows,
+      lossTRows,
+      lossCRows,
+      loadedAt: nowIso()
+    };
+    writeCache(cacheKey, payload);
+    return res.json({ ok: true, ...payload, cached: false });
+  } catch (err) {
+    return res.status(502).json({ ok: false, error: `Error cargando Faltante Turbo: ${err.message || 'desconocido'}` });
+  }
+});
+
+app.get('/api/data/performance', requireAuth, async (req, res) => {
+  if (!canAccessModule(req.user, 'performance')) {
+    return res.status(403).json({ ok: false, error: 'Sin acceso al módulo CPK' });
+  }
+
+  const links = getLinks();
+  const cpkUrl = normalizeStr(links.cpk || DEFAULT_LINKS.cpk);
+  const cacheKey = `performance:${cpkUrl}|${DEFAULT_CPK_GOALS_URL}`;
+  const cached = readCache(cacheKey);
+  if (cached) return res.json({ ok: true, ...cached, cached: true });
+
+  try {
+    const [cpkRows, cpkGoalsRows] = await Promise.all([
+      fetchCsvObjects(cpkUrl),
+      fetchCsvObjects(DEFAULT_CPK_GOALS_URL)
+    ]);
+    const payload = { cpkRows, cpkGoalsRows, loadedAt: nowIso() };
+    writeCache(cacheKey, payload);
+    return res.json({ ok: true, ...payload, cached: false });
+  } catch (err) {
+    return res.status(502).json({ ok: false, error: `Error cargando CPK: ${err.message || 'desconocido'}` });
+  }
+});
+
+app.get('/api/data/scrap', requireAuth, async (req, res) => {
+  if (!canAccessModule(req.user, 'scrap')) {
+    return res.status(403).json({ ok: false, error: 'Sin acceso al módulo Desecho' });
+  }
+
+  const links = getLinks();
+  const scrapUrl = normalizeStr(links.scrap || DEFAULT_LINKS.scrap);
+  const scrapCreditUrl = normalizeStr(links.scrapCredit || DEFAULT_LINKS.scrapCredit);
+  const cacheKey = `scrap:${scrapUrl}|${scrapCreditUrl}`;
+  const cached = readCache(cacheKey);
+  if (cached) return res.json({ ok: true, ...cached, cached: true });
+
+  try {
+    const [scrapRows, scrapCreditRows] = await Promise.all([
+      fetchCsvObjects(scrapUrl),
+      fetchCsvObjects(scrapCreditUrl)
+    ]);
+    const payload = { scrapRows, scrapCreditRows, loadedAt: nowIso() };
+    writeCache(cacheKey, payload);
+    return res.json({ ok: true, ...payload, cached: false });
+  } catch (err) {
+    return res.status(502).json({ ok: false, error: `Error cargando Desecho: ${err.message || 'desconocido'}` });
+  }
+});
+
+app.get('/api/data/washing', requireAuth, async (req, res) => {
+  if (!canAccessModule(req.user, 'washing')) {
+    return res.status(403).json({ ok: false, error: 'Sin acceso al módulo Lavadero' });
+  }
+
+  const links = getLinks();
+  const washUrl = normalizeStr(links.wash || DEFAULT_LINKS.wash);
+  const washHistUrl = normalizeStr(links.washHist || DEFAULT_LINKS.washHist);
+  const cacheKey = `washing:${washUrl}|${washHistUrl}`;
+  const cached = readCache(cacheKey);
+  if (cached) return res.json({ ok: true, ...cached, cached: true });
+
+  try {
+    const [washRows, washHistRows] = await Promise.all([
+      fetchCsvObjects(washUrl),
+      fetchCsvObjects(washHistUrl)
+    ]);
+    const payload = { washRows, washHistRows, loadedAt: nowIso() };
+    writeCache(cacheKey, payload);
+    return res.json({ ok: true, ...payload, cached: false });
+  } catch (err) {
+    return res.status(502).json({ ok: false, error: `Error cargando Lavadero: ${err.message || 'desconocido'}` });
+  }
+});
+
+app.get('/api/data/extra', requireAuth, async (req, res) => {
+  if (!canAccessModule(req.user, 'extra')) {
+    return res.status(403).json({ ok: false, error: 'Sin acceso al módulo Rendimientos' });
+  }
+
+  const links = getLinks();
+  const extraUrl = normalizeStr(links.extra || DEFAULT_LINKS.extra);
+  const cacheKey = `extra:${extraUrl}`;
+  const cached = readCache(cacheKey);
+  if (cached) return res.json({ ok: true, ...cached, cached: true });
+
+  try {
+    const extraRows = await fetchCsvObjects(extraUrl);
+    const payload = { extraRows, loadedAt: nowIso() };
+    writeCache(cacheKey, payload);
+    return res.json({ ok: true, ...payload, cached: false });
+  } catch (err) {
+    return res.status(502).json({ ok: false, error: `Error cargando Rendimientos: ${err.message || 'desconocido'}` });
+  }
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
